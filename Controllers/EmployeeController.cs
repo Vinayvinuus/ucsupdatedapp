@@ -195,7 +195,7 @@ namespace ucsUpdatedApp.Controllers
                             Operation = "Check-In",
                             OpDateTime = transaction.OpDateTime,
                             CheckInMethod = transaction.CheckInMethod,
-                            Status = "Success"
+                            Status = "Successfully checkedIn"
                         });
                     }
                     // Handle Check-Out
