@@ -32,7 +32,7 @@ namespace ucsUpdatedApp.Controllers
             public int EmployeeId { get; set; }
             public string Operation { get; set; }
             public DateTime OpDateTime { get; set; }
-            public string CheckInMethod { get; set; }
+            // public string CheckInMethod { get; set; }
             public string Status { get; set; }
         }
         [HttpGet("master")]
@@ -47,7 +47,7 @@ namespace ucsUpdatedApp.Controllers
                         m.EmployeeId,
                         m.Employeename,
                         m.FingerPrintData,
-                       // m.LastTransactionDate
+                        // m.LastTransactionDate
                     })
                     .ToListAsync();
 
@@ -68,18 +68,18 @@ namespace ucsUpdatedApp.Controllers
                     .OrderByDescending(t => t.OpDateTime)
                     .Select(t => new
                     {
-                       //t.Id,
+                        //t.Id,
                         t.MasterId,
                         t.Op,
                         OperationType = t.Op == 1 ? "Check-In" : "Check-Out",
                         t.OpDateTime,
-                       // t.CheckInMethod,
-                        
-                          //  t.Master.MasterId,
-                            t.Master.Employeename,
-                            t.Master.LastTransactionDate
-                           
-                        
+                        // t.CheckInMethod,
+
+                        //  t.Master.MasterId,
+                        t.Master.Employeename,
+                        t.Master.LastTransactionDate
+
+
                     })
                     .ToListAsync();
 
@@ -94,6 +94,8 @@ namespace ucsUpdatedApp.Controllers
 
 
         [HttpPost]
+
+        //code updated
         public async Task<IActionResult> ManageAttendance([FromBody] List<AttendanceRequest> requests)
         {
             if (requests == null || requests.Count == 0)
@@ -116,7 +118,7 @@ namespace ucsUpdatedApp.Controllers
                             Operation = request.Op == 1 ? "Check-In" : "Check-Out",
                             OpDateTime = request.OpDateTime,
                             Id = 0,
-                            CheckInMethod = "Invalid Identification"
+                            // CheckInMethod = "Invalid Identification"
                         });
                         continue;
                     }
@@ -135,19 +137,19 @@ namespace ucsUpdatedApp.Controllers
                             .FirstOrDefaultAsync(u => u.FingerPrintData == request.FingerPrintData);
                     }
 
-                    if (user == null)
-                    {
-                        responses.Add(new AttendanceResponse
-                        {
-                            EmployeeId = request.EmployeeId ?? 0,
-                            Status = "Error",
-                            Operation = request.Op == 1 ? "Check-In" : "Check-Out",
-                            OpDateTime = request.OpDateTime,
-                            Id = 0,
-                            CheckInMethod = request.EmployeeId.HasValue ? "EmployeeId" : "FingerPrint"
-                        });
-                        continue;
-                    }
+                    //if (user == null)
+                    //{
+                    //    responses.Add(new AttendanceResponse
+                    //    {
+                    //        EmployeeId = request.EmployeeId ?? 0,
+                    //        Status = "Error",
+                    //        Operation = request.Op == 1 ? "Check-In" : "Check-Out",
+                    //        OpDateTime = request.OpDateTime,
+                    //        Id = 0,
+                    //        CheckInMethod = request.EmployeeId.HasValue ? "EmployeeId" : "FingerPrint"
+                    //    });
+                    //    continue;
+                    //}
 
                     // Determine check-in method
                     string checkInMethod = request.EmployeeId.HasValue && !string.IsNullOrEmpty(request.FingerPrintData)
@@ -171,7 +173,7 @@ namespace ucsUpdatedApp.Controllers
                                 Operation = "Check-In",
                                 OpDateTime = request.OpDateTime,
                                 Id = 0,
-                                CheckInMethod = "Already Checked In Without Checkout"
+                                //CheckInMethod = "Already Checked In Without Checkout"
                             });
                             continue;
                         }
@@ -181,7 +183,7 @@ namespace ucsUpdatedApp.Controllers
                             MasterId = user.MasterId,
                             OpDateTime = request.OpDateTime,
                             Op = 1,
-                            CheckInMethod = checkInMethod,
+                            //CheckInMethod = checkInMethod,
                             LatestTransactionDate = DateTime.UtcNow
                         };
 
@@ -194,8 +196,8 @@ namespace ucsUpdatedApp.Controllers
                             EmployeeId = user.EmployeeId,
                             Operation = "Check-In",
                             OpDateTime = transaction.OpDateTime,
-                            CheckInMethod = transaction.CheckInMethod,
-                            Status = "Success happy to see"
+                            //CheckInMethod = transaction.CheckInMethod,
+                            Status = "Success"
                         });
                     }
                     // Handle Check-Out
@@ -206,26 +208,26 @@ namespace ucsUpdatedApp.Controllers
                             .OrderByDescending(t => t.Id)
                             .FirstOrDefaultAsync();
 
-                        if (lastCheckIn == null)
-                        {
-                            responses.Add(new AttendanceResponse
-                            {
-                                EmployeeId = user.EmployeeId,
-                                Status = "Error",
-                                Operation = "Check-Out",
-                                OpDateTime = request.OpDateTime,
-                                Id = 0,
-                                CheckInMethod = "No Active Check-In"
-                            });
-                            continue;
-                        }
+                        //if (lastCheckIn == null)
+                        //{
+                        //    responses.Add(new AttendanceResponse
+                        //    {
+                        //        EmployeeId = user.EmployeeId,
+                        //        Status = "Error",
+                        //        Operation = "Check-Out",
+                        //        OpDateTime = request.OpDateTime,
+                        //        Id = 0,
+                        //        CheckInMethod = "No Active Check-In"
+                        //    });
+                        //    continue;
+                        //}
 
                         var transaction = new TransactionTable
                         {
                             MasterId = user.MasterId,
                             OpDateTime = request.OpDateTime,
                             Op = 0,
-                            CheckInMethod = checkInMethod,
+                            // CheckInMethod = checkInMethod,
                             LatestTransactionDate = DateTime.UtcNow
                         };
 
@@ -237,7 +239,7 @@ namespace ucsUpdatedApp.Controllers
                             EmployeeId = user.EmployeeId,
                             Operation = "Check-Out",
                             OpDateTime = transaction.OpDateTime,
-                            CheckInMethod = transaction.CheckInMethod,
+                            // CheckInMethod = transaction.CheckInMethod,
                             Status = "Success"
                         });
                     }
@@ -262,7 +264,7 @@ namespace ucsUpdatedApp.Controllers
                         Operation = request.Op == 1 ? "Check-In" : "Check-Out",
                         OpDateTime = request.OpDateTime,
                         Id = 0,
-                        CheckInMethod = "Exception Occurred"
+                        //CheckInMethod = "Exception Occurred"
                     });
                 }
             }
