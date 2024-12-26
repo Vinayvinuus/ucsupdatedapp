@@ -95,185 +95,267 @@ namespace ucsUpdatedApp.Controllers
 
         [HttpPost]
 
-        //code updated
-         public async Task<IActionResult> ManageAttendance([FromBody] List<AttendanceRequest> requests)
- {
-     if (requests == null || requests.Count == 0)
-     {
-         return BadRequest("Request list cannot be empty.");
-     }
+                public async Task<IActionResult> ManageAttendance([FromBody] List<AttendanceRequest> requests)
+        {
+            if (requests == null || requests.Count == 0)
+            {
+                return BadRequest("Request list cannot be empty.");
+            }
 
-     var responses = new List<AttendanceResponse>();
+            var responses = new List<AttendanceResponse>();
 
-     foreach (var request in requests)
-     {
-         try
-         {
-             // Validate input: Either EmployeeId or FingerPrintData must be provided
-             if (!request.EmployeeId.HasValue && string.IsNullOrEmpty(request.FingerPrintData))
-             {
-                 responses.Add(new AttendanceResponse
-                 {
-                     Status = "Error",
-                     Operation = request.Op == 1 ? "Check-In" : "Check-Out",
-                     OpDateTime = request.OpDateTime,
-                     Id = 0,
-                    //CheckInMethod = "Invalid Identification"
-                 });
-                 continue;
-             }
+            foreach (var request in requests)
+            {
+                try
+                {
+                    // Determine check-in method
+                    string checkInMethod = request.EmployeeId.HasValue && !string.IsNullOrEmpty(request.FingerPrintData)
+                        ? "EmployeeIdAndFingerPrint"
+                        : (request.EmployeeId.HasValue ? "EmployeeId" : "FingerPrint");
 
-             // Find the user
-             MasterTable user = null;
-             if (request.EmployeeId.HasValue)
-             {
-                 user = await _context.MasterTable
-                     .FirstOrDefaultAsync(u => u.EmployeeId == request.EmployeeId.Value);
-             }
+                    // Find the user based on EmployeeId or FingerPrintData
+                    var user = await _context.MasterTable
+                        .FirstOrDefaultAsync(u =>
+                            u.EmployeeId == request.EmployeeId ||
+                            u.FingerPrintData == request.FingerPrintData);
 
-             if (user == null && !string.IsNullOrEmpty(request.FingerPrintData))
-             {
-                 user = await _context.MasterTable
-                     .FirstOrDefaultAsync(u => u.FingerPrintData == request.FingerPrintData);
-             }
+                    if (user == null)
+                    {
+                        // If user not found, add an error response and continue
+                        responses.Add(new AttendanceResponse
+                        {
+                            EmployeeId = request.EmployeeId ?? 0,
+                            Status = "Error",
+                            Operation = request.Op == 1 ? "Check-In" : "Check-Out",
+                            OpDateTime = request.OpDateTime,
+                            Id = 0,
+                            
+                        });
+                        continue;
+                    }
 
-             //if (user == null)
-             //{
-             //    responses.Add(new AttendanceResponse
-             //    {
-             //        EmployeeId = request.EmployeeId ?? 0,
-             //        Status = "Error",
-             //        Operation = request.Op == 1 ? "Check-In" : "Check-Out",
-             //        OpDateTime = request.OpDateTime,
-             //        Id = 0,
-             //        CheckInMethod = request.EmployeeId.HasValue ? "EmployeeId" : "FingerPrint"
-             //    });
-             //    continue;
-             //}
+                    // Create a new transaction
+                    var transaction = new TransactionTable
+                    {
+                        MasterId = user.MasterId,
+                        OpDateTime = request.OpDateTime,
+                        Op = request.Op,
+                        CheckInMethod = checkInMethod,
+                        LatestTransactionDate = DateTime.UtcNow
+                    };
 
-             // Determine check-in method
-             string checkInMethod = request.EmployeeId.HasValue && !string.IsNullOrEmpty(request.FingerPrintData)
-                 ? "EmployeeIdAndFingerPrint"
-                 : (request.EmployeeId.HasValue ? "EmployeeId" : "FingerPrint");
+                    _context.TransactionTable.Add(transaction);
 
-             // Handle Check-In
-             if (request.Op == 1)
-             {
-                 var lastTransaction = await _context.TransactionTable
-                     .Where(t => t.MasterId == user.MasterId)
-                     .OrderByDescending(t => t.Id)
-                     .FirstOrDefaultAsync();
+                    // Add a successful response
+                    responses.Add(new AttendanceResponse
+                    {
+                        Id = transaction.Id,
+                        EmployeeId = user.EmployeeId,
+                        Operation = request.Op == 1 ? "Check-In" : "Check-Out",
+                        OpDateTime = transaction.OpDateTime,
+                        Status = "Success"
+                    });
+                }
+                catch (Exception ex)
+                {
+                    // Add an error response for exceptions
+                    responses.Add(new AttendanceResponse
+                    {
+                        EmployeeId = request.EmployeeId ?? 0,
+                        Status = "Error",
+                        Operation = request.Op == 1 ? "Check-In" : "Check-Out",
+                        OpDateTime = request.OpDateTime,
+                        Id = 0,
+                        
+                    });
+                }
+            }
 
-                 if (lastTransaction != null && lastTransaction.Op == 1)
-                 {
-                     responses.Add(new AttendanceResponse
-                     {
-                         EmployeeId = user.EmployeeId,
-                         Status = "Error",
-                         Operation = "Check-In",
-                         OpDateTime = request.OpDateTime,
-                         Id = 0,
-                         //CheckInMethod = "Already Checked In Without Checkout"
-                     });
-                     continue;
-                 }
+            // Save all transactions to the database
+            await _context.SaveChangesAsync();
 
-                 var transaction = new TransactionTable
-                 {
-                     MasterId = user.MasterId,
-                     OpDateTime = request.OpDateTime,
-                     Op = 1,
-                     CheckInMethod = checkInMethod,
-                     LatestTransactionDate = DateTime.UtcNow
-                 };
+            return Ok(responses);
+        }
 
-                 _context.TransactionTable.Add(transaction);
-                 user.LastTransactionDate = transaction.OpDateTime;
+ //        //code updated
+ //         public async Task<IActionResult> ManageAttendance([FromBody] List<AttendanceRequest> requests)
+ // {
+ //     if (requests == null || requests.Count == 0)
+ //     {
+ //         return BadRequest("Request list cannot be empty.");
+ //     }
 
-                 responses.Add(new AttendanceResponse
-                 {
-                     Id = transaction.Id,
-                     EmployeeId = user.EmployeeId,
-                     Operation = "Check-In",
-                     OpDateTime = transaction.OpDateTime,
-                    // CheckInMethod = transaction.CheckInMethod,
-                     Status = "Success"
-                 });
-             }
-             // Handle Check-Out
-             else if (request.Op == 0)
-             {
-                 var lastCheckIn = await _context.TransactionTable
-                     .Where(t => t.MasterId == user.MasterId && t.Op == 1)
-                     .OrderByDescending(t => t.Id)
-                     .FirstOrDefaultAsync();
+ //     var responses = new List<AttendanceResponse>();
 
-                 //if (lastCheckIn == null)
-                 //{
-                 //    responses.Add(new AttendanceResponse
-                 //    {
-                 //        EmployeeId = user.EmployeeId,
-                 //        Status = "Error",
-                 //        Operation = "Check-Out",
-                 //        OpDateTime = request.OpDateTime,
-                 //        Id = 0,
-                 //        CheckInMethod = "No Active Check-In"
-                 //    });
-                 //    continue;
-                 //}
+ //     foreach (var request in requests)
+ //     {
+ //         try
+ //         {
+ //             // Validate input: Either EmployeeId or FingerPrintData must be provided
+ //             if (!request.EmployeeId.HasValue && string.IsNullOrEmpty(request.FingerPrintData))
+ //             {
+ //                 responses.Add(new AttendanceResponse
+ //                 {
+ //                     Status = "Error",
+ //                     Operation = request.Op == 1 ? "Check-In" : "Check-Out",
+ //                     OpDateTime = request.OpDateTime,
+ //                     Id = 0,
+ //                    //CheckInMethod = "Invalid Identification"
+ //                 });
+ //                 continue;
+ //             }
 
-                 var transaction = new TransactionTable
-                 {
-                     MasterId = user.MasterId,
-                     OpDateTime = request.OpDateTime,
-                     Op = 0,
-                     CheckInMethod = checkInMethod,
-                     LatestTransactionDate = DateTime.UtcNow
-                 };
+ //             // Find the user
+ //             MasterTable user = null;
+ //             if (request.EmployeeId.HasValue)
+ //             {
+ //                 user = await _context.MasterTable
+ //                     .FirstOrDefaultAsync(u => u.EmployeeId == request.EmployeeId.Value);
+ //             }
 
-                 _context.TransactionTable.Add(transaction);
+ //             if (user == null && !string.IsNullOrEmpty(request.FingerPrintData))
+ //             {
+ //                 user = await _context.MasterTable
+ //                     .FirstOrDefaultAsync(u => u.FingerPrintData == request.FingerPrintData);
+ //             }
 
-                 responses.Add(new AttendanceResponse
-                 {
-                     Id = transaction.Id,
-                     EmployeeId = user.EmployeeId,
-                     Operation = "Check-Out",
-                     OpDateTime = transaction.OpDateTime,
-                    //CheckInMethod = transaction.CheckInMethod,
-                     Status = "Success"
-                 });
-             }
-             else
-             {
-                 responses.Add(new AttendanceResponse
-                 {
-                     EmployeeId = request.EmployeeId ?? 0,
-                     Status = "Error",
-                     Operation = "Invalid Operation",
-                     OpDateTime = request.OpDateTime,
-                     Id = 0
-                 });
-             }
-         }
-         catch (Exception ex)
-         {
-             responses.Add(new AttendanceResponse
-             {
-                 EmployeeId = request.EmployeeId ?? 0,
-                 Status = "Error",
-                 Operation = request.Op == 1 ? "Check-In" : "Check-Out",
-                 OpDateTime = request.OpDateTime,
-                 Id = 0,
-                 //CheckInMethod = "Exception Occurred"
-             });
-         }
-     }
+ //             //if (user == null)
+ //             //{
+ //             //    responses.Add(new AttendanceResponse
+ //             //    {
+ //             //        EmployeeId = request.EmployeeId ?? 0,
+ //             //        Status = "Error",
+ //             //        Operation = request.Op == 1 ? "Check-In" : "Check-Out",
+ //             //        OpDateTime = request.OpDateTime,
+ //             //        Id = 0,
+ //             //        CheckInMethod = request.EmployeeId.HasValue ? "EmployeeId" : "FingerPrint"
+ //             //    });
+ //             //    continue;
+ //             //}
 
-     // Save all changes after processing the requests
-     await _context.SaveChangesAsync();
+ //             // Determine check-in method
+ //             string checkInMethod = request.EmployeeId.HasValue && !string.IsNullOrEmpty(request.FingerPrintData)
+ //                 ? "EmployeeIdAndFingerPrint"
+ //                 : (request.EmployeeId.HasValue ? "EmployeeId" : "FingerPrint");
 
-     return Ok(responses);
- } 
+ //             // Handle Check-In
+ //             if (request.Op == 1)
+ //             {
+ //                 var lastTransaction = await _context.TransactionTable
+ //                     .Where(t => t.MasterId == user.MasterId)
+ //                     .OrderByDescending(t => t.Id)
+ //                     .FirstOrDefaultAsync();
+
+ //                 if (lastTransaction != null && lastTransaction.Op == 1)
+ //                 {
+ //                     responses.Add(new AttendanceResponse
+ //                     {
+ //                         EmployeeId = user.EmployeeId,
+ //                         Status = "Error",
+ //                         Operation = "Check-In",
+ //                         OpDateTime = request.OpDateTime,
+ //                         Id = 0,
+ //                         //CheckInMethod = "Already Checked In Without Checkout"
+ //                     });
+ //                     continue;
+ //                 }
+
+ //                 var transaction = new TransactionTable
+ //                 {
+ //                     MasterId = user.MasterId,
+ //                     OpDateTime = request.OpDateTime,
+ //                     Op = 1,
+ //                     CheckInMethod = checkInMethod,
+ //                     LatestTransactionDate = DateTime.UtcNow
+ //                 };
+
+ //                 _context.TransactionTable.Add(transaction);
+ //                 user.LastTransactionDate = transaction.OpDateTime;
+
+ //                 responses.Add(new AttendanceResponse
+ //                 {
+ //                     Id = transaction.Id,
+ //                     EmployeeId = user.EmployeeId,
+ //                     Operation = "Check-In",
+ //                     OpDateTime = transaction.OpDateTime,
+ //                    // CheckInMethod = transaction.CheckInMethod,
+ //                     Status = "Success"
+ //                 });
+ //             }
+ //             // Handle Check-Out
+ //             else if (request.Op == 0)
+ //             {
+ //                 var lastCheckIn = await _context.TransactionTable
+ //                     .Where(t => t.MasterId == user.MasterId && t.Op == 1)
+ //                     .OrderByDescending(t => t.Id)
+ //                     .FirstOrDefaultAsync();
+
+ //                 //if (lastCheckIn == null)
+ //                 //{
+ //                 //    responses.Add(new AttendanceResponse
+ //                 //    {
+ //                 //        EmployeeId = user.EmployeeId,
+ //                 //        Status = "Error",
+ //                 //        Operation = "Check-Out",
+ //                 //        OpDateTime = request.OpDateTime,
+ //                 //        Id = 0,
+ //                 //        CheckInMethod = "No Active Check-In"
+ //                 //    });
+ //                 //    continue;
+ //                 //}
+
+ //                 var transaction = new TransactionTable
+ //                 {
+ //                     MasterId = user.MasterId,
+ //                     OpDateTime = request.OpDateTime,
+ //                     Op = 0,
+ //                     CheckInMethod = checkInMethod,
+ //                     LatestTransactionDate = DateTime.UtcNow
+ //                 };
+
+ //                 _context.TransactionTable.Add(transaction);
+
+ //                 responses.Add(new AttendanceResponse
+ //                 {
+ //                     Id = transaction.Id,
+ //                     EmployeeId = user.EmployeeId,
+ //                     Operation = "Check-Out",
+ //                     OpDateTime = transaction.OpDateTime,
+ //                    //CheckInMethod = transaction.CheckInMethod,
+ //                     Status = "Success"
+ //                 });
+ //             }
+ //             else
+ //             {
+ //                 responses.Add(new AttendanceResponse
+ //                 {
+ //                     EmployeeId = request.EmployeeId ?? 0,
+ //                     Status = "Error",
+ //                     Operation = "Invalid Operation",
+ //                     OpDateTime = request.OpDateTime,
+ //                     Id = 0
+ //                 });
+ //             }
+ //         }
+ //         catch (Exception ex)
+ //         {
+ //             responses.Add(new AttendanceResponse
+ //             {
+ //                 EmployeeId = request.EmployeeId ?? 0,
+ //                 Status = "Error",
+ //                 Operation = request.Op == 1 ? "Check-In" : "Check-Out",
+ //                 OpDateTime = request.OpDateTime,
+ //                 Id = 0,
+ //                 //CheckInMethod = "Exception Occurred"
+ //             });
+ //         }
+ //     }
+
+ //     // Save all changes after processing the requests
+ //     await _context.SaveChangesAsync();
+
+ //     return Ok(responses);
+ // } 
 
 
 
