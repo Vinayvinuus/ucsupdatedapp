@@ -19,6 +19,6 @@ FROM mcr.microsoft.com/dotnet/aspnet:7.0
 WORKDIR /app
 COPY --from=build-env /app/publish .
 
-EXPOSE 3020
+EXPOSE 4000
 
 ENTRYPOINT ["dotnet", "ucsUpdatedApp.dll"]
