@@ -22,3 +22,4 @@ COPY --from=build-env /app/publish .
 EXPOSE 4000
 
 ENTRYPOINT ["dotnet", "ucsUpdatedApp.dll"]
+
