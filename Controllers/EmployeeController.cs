@@ -47,6 +47,9 @@ namespace ucsUpdatedApp.Controllers
                         m.EmployeeId,
                         m.Employeename,
                         m.FingerPrintData,
+                        DOB = m.DOB.HasValue ? m.DOB.Value.ToString("yyyy-MM-dd") : null, //yyyy-MM-dd
+                        DOJ = m.DOJ.HasValue ? m.DOJ.Value.ToString("yyyy-MM-dd") : null
+
                         // m.LastTransactionDate
                     })
                     .ToListAsync();

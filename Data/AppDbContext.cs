@@ -17,15 +17,22 @@ namespace ucsUpdatedApp.Data
             {
                 base.OnModelCreating(modelBuilder);
 
-                // MasterTable configuration
+                 // MasterTable configuration
                 modelBuilder.Entity<MasterTable>(entity =>
                 {
                     entity.HasKey(e => e.MasterId); // Primary key
                     entity.Property(e => e.EmployeeId).IsRequired();
                     entity.Property(e => e.Employeename).IsRequired();
                     entity.Property(e => e.FingerPrintData).IsRequired(false);
+                    entity.Property(e => e.DOB) // Configure DOB
+                   .IsRequired(false) // Allow null values
+                   .HasColumnType("DATE"); // Explicitly define as DATE type
+                    entity.Property(e => e.DOJ) // Configure DOJ
+                        .IsRequired(false) // Allow null values
+                        .HasColumnType("DATE");
                     entity.Property(e => e.LastTransactionDate).IsRequired(false);
                 });
+
 
                 // TransactionTable configuration
                 modelBuilder.Entity<TransactionTable>(entity =>

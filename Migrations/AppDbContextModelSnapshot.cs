@@ -30,6 +30,12 @@ namespace ucsUpdatedApp.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("MasterId"));
 
+                    b.Property<DateTime?>("DOB")
+                        .HasColumnType("DATE");
+
+                    b.Property<DateTime?>("DOJ")
+                        .HasColumnType("DATE");
+
                     b.Property<int>("EmployeeId")
                         .HasColumnType("integer");
 
